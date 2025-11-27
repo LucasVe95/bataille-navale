@@ -90,10 +90,11 @@ class Bateau:
         elif type == 'porte-avions':
             self.taille = 5
 
+def tour(joueur_actuel, adversaire):
+    print(f"C'est le tour de {joueur_actuel.name}.")
+    # attaquer
 
-
-#TEST UNITAIRE
-if __name__ == "__main__":
+def partie():
     j1 = Player(input("Nom du Joueur 1: "))
     j2 = Player(input("Nom du Joueur 2: "))
     # placement de bateau
@@ -106,6 +107,7 @@ if __name__ == "__main__":
             j1.plateau.__str__()
             print(f"{bateau_type} placé avec succès.")
         except ValueError as e:
+            j1.plateau.__str__()
             print(f"Erreur lors du placement de {bateau_type}: {e}")
     while j2.bateaux_restants:
         bateau_type = input(f"{j2.name}, quel bateau voulez-vous placer parmi [{', '.join(j2.bateaux_restants)}] ? ").capitalize().lower()
@@ -116,5 +118,12 @@ if __name__ == "__main__":
             j2.plateau.__str__()
             print(f"{bateau_type} placé avec succès.")
         except ValueError as e:
+            j2.plateau.__str__()
             print(f"Erreur lors du placement de {bateau_type}: {e}")
+    while True: # boucle principale de la partie, condition de fin à ajouter
+        tour(j1, j2)
+        tour(j2, j1)
+#TEST UNITAIRE
+if __name__ == "__main__":
+    partie()
 #TEST UNITAIRE
