@@ -12,7 +12,6 @@ class Battaille_Navale:
             row_nom = chr(ord('A') + row_numero)
             # Afficher la ligne avec son identifiant
             print(row_nom + " " + " ".join(self.plateau[row_numero]))
-            
 
 class Player:
     def __init__(self, name):
@@ -20,8 +19,12 @@ class Player:
         self.plateau = Battaille_Navale()
         self.bateaux_restants = ['torpilleur', 'contre torpilleur', 'sous-marin', 'croiseur', 'porte-avions']
         self.bateaux = []
+        self.cases_attaquable = {}
+        for lettre in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']:
+            for num in range (1, 11):
+                cases = f"{lettre}{num}"
+                self.cases_attaquable[cases] = True
 
-    
     def placer_bateau(self, type, emplacement, orientation):
         bateau = Bateau(type)
         if type not in self.bateaux_restants:
@@ -71,8 +74,19 @@ class Player:
                 bateau.cases.append(emplacement[0] + str(colone - i))
         self.bateaux.append(bateau)
         self.bateaux_restants.remove(type)
+    
+    def est_valide(self, coord):
+        """
+        Vérifie si les coordonnées données sont valides pour l'attaque
+        
+        Args:
+            coord (str): Les coordonnées à vérifier (ex: 'A1', 'B5', etc.).
+            taille_grille (int): La taille de la grille (par défaut 10 pour une grille 10x10).
             
-
+        Returns:
+            bool: True si les coordonnées sont valides, False sinon.
+        """
+        return bool(self.cases_attaquable.get(coord, False))
 
 
 class Bateau:
@@ -90,8 +104,8 @@ class Bateau:
         elif type == 'porte-avions':
             self.taille = 5
 
-def tour(joueur_actuel, adversaire):
-    print(f"C'est le tour de {joueur_actuel.name}.")
+def tour(joueur_actuel, adversaire, coord_attaque):
+    pass
     # attaquer
 
 def partie():
