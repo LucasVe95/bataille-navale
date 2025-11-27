@@ -27,14 +27,18 @@ class Player:
 
     def placer_bateau(self, type, emplacement, orientation):
         bateau = Bateau(type)
+        n = len(emplacement)
         # Vérifications des variables entrées
         if type not in self.types_restants:
             raise ValueError("Type de bateau déjà placé")
-        if len(emplacement) < 1 or emplacement[0] not in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] or int(emplacement[1]) < 1 or int(emplacement[1]) > 10:
+        if (n < 2 and n > 3) or emplacement[0] not in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] or int(emplacement[1]) < 1 or int(f"{emplacement[1]}{emplacement[2]}") > 10:
             raise ValueError("Case de départ invalide")
         if orientation not in ['N', 'S', 'E', 'W']:
             raise ValueError("Orientation invalide")
-        colone = int(emplacement[1])
+        if n == 2:
+            colone = int(emplacement[1])
+        else:
+            colone = int(f"{emplacement[1]}{emplacement[2]}")
         lettres = {'A' : 0, 'B' : 1, 'C' : 2, 'D' : 3, 'E' : 4, 'F' : 5, 'G' : 6, 'H' : 7, 'I' : 8, 'J' : 9}
         ligne = lettres[emplacement[0]]
         # Placement du bateau selon l'orientation
@@ -57,6 +61,7 @@ class Player:
                 if colone < 1 or colone > 10 or ligne + i < 0 or ligne + i > 9:
                     raise ValueError("Placement hors de la grille")
                 if self.plateau.plateau[ligne + i][colone - 1] == "X":
+                    print(self.plateau.plateau[ligne + i][colone - 1])
                     raise ValueError("Placement en collision avec un autre bateau")
             #placement du bateau
             for i in range(bateau.taille):
