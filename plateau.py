@@ -29,12 +29,31 @@ class Player:
         bateau = Bateau(type)
         n = len(emplacement)
         # Vérifications des variables entrées
+
+        # Type de bateau valide
         if type not in self.types_restants:
             raise ValueError("Type de bateau déjà placé")
-        if (n < 2 and n > 3) or emplacement[0] not in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] or int(emplacement[1]) < 1 or int(f"{emplacement[1]}{emplacement[2]}") > 10:
-            raise ValueError("Case de départ invalide")
+        
+        # orthographe de la case de départ valide
+        if n < 2 or n > 3:
+            raise ValueError("La case de départ doit être composée de la lettre de la ligne et du numéro de la colonne")
+        
+        # lettre de la ligne allant de A à J
+        if emplacement[0] not in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']:
+            raise ValueError("Lettre de la ligne invalide")
+        
+        # numéro de la colonne entre 1 et 10
+        if int(emplacement[1]) < 1:
+            raise ValueError("le numéro de la colonne doit être entre 1 et 10")
+        if n == 3:
+            if int(emplacement[2]) > 0 or int(emplacement[1]) != 1:
+                raise ValueError("le numéro de la colonne doit être entre 1 et 10")
+            
+        # orientation valide
         if orientation not in ['N', 'S', 'E', 'W']:
-            raise ValueError("Orientation invalide")
+            raise ValueError("Orientation invalide \nrappel: les orientations disponibles sont N, S, E et W")
+        
+        # Conversion des coordonnées
         if n == 2:
             colone = int(emplacement[1])
         else:
@@ -106,7 +125,7 @@ class Player:
         Returns:
             bool: True si les coordonnées sont valides, False sinon.
         """
-        return bool(self.cases_attaquable.get(coord, False))
+        return self.cases_attaquable.get(coord, False)
 
 
 class Bateau:
@@ -138,9 +157,9 @@ def partie():
     joueur = j1
     # placement de bateau
     while j1.types_restants:
-        bateau_type = input(f"{j1.name}, quel bateau voulez-vous placer parmi [{', '.join(j1.types_restants)}] ? ").capitalize().lower()
-        coordonnée = input("Entrez les coordonnés de la première case du bateau: ")
-        orientation = input("Entrez l'orientation du bateau (N, S, E, W): ")
+        bateau_type = input(f"{j1.name}, quel bateau voulez-vous placer parmi [{', '.join(j1.types_restants)}] ?").lower()
+        coordonnée = input("Entrez les coordonnés de la première case du bateau: ").upper()
+        orientation = input("Entrez l'orientation du bateau (N, S, E, W): ").upper()
         try:
             j1.placer_bateau(bateau_type, coordonnée, orientation)
             j1.plateau.__str__()
@@ -149,7 +168,7 @@ def partie():
             j1.plateau.__str__()
             print(f"Erreur lors du placement de {bateau_type}: {e}")
     while j2.types_restants:
-        bateau_type = input(f"{j2.name}, quel bateau voulez-vous placer parmi [{', '.join(j2.types_restants)}] ? ").capitalize().lower()
+        bateau_type = input(f"{j2.name}, quel bateau voulez-vous placer parmi [{', '.join(j2.types_restants)}] ?").lower()
         coordonnée = input("Entrez les coordonnés de la première case du bateau: ")
         orientation = input("Entrez l'orientation du bateau (N, S, E, W): ")
         try:
