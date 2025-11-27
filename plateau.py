@@ -17,8 +17,8 @@ class Player:
     def __init__(self, name):
         self.name = name
         self.plateau = Battaille_Navale()
-        self.bateaux_restants = ['torpilleur', 'contre torpilleur', 'sous-marin', 'croiseur', 'porte-avions']
-        self.bateaux = []
+        self.types_restants = ['torpilleur', 'contre torpilleur', 'sous-marin', 'croiseur', 'porte-avions']
+        self.bateaux_restants = []
         self.cases_attaquable = {}
         for lettre in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']:
             for num in range (1, 11):
@@ -27,7 +27,8 @@ class Player:
 
     def placer_bateau(self, type, emplacement, orientation):
         bateau = Bateau(type)
-        if type not in self.bateaux_restants:
+        # Vérifications des variables entrées
+        if type not in self.types_restants:
             raise ValueError("Type de bateau déjà placé")
         if len(emplacement) < 1 or emplacement[0] not in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] or int(emplacement[1]) < 1 or int(emplacement[1]) > 10:
             raise ValueError("Case de départ invalide")
@@ -36,44 +37,58 @@ class Player:
         colone = int(emplacement[1])
         lettres = {'A' : 0, 'B' : 1, 'C' : 2, 'D' : 3, 'E' : 4, 'F' : 5, 'G' : 6, 'H' : 7, 'I' : 8, 'J' : 9}
         ligne = lettres[emplacement[0]]
+        # Placement du bateau selon l'orientation
+        #Nord
         if orientation == 'N':
+            #verification placement du bateau
             for i in range(bateau.taille):
                 if colone < 1 or colone > 10 or ligne - i < 0 or ligne - i > 9:
                     raise ValueError("Placement hors de la grille")
                 if self.plateau.plateau[ligne - i][colone - 1] == "X":
                     raise ValueError("Placement en collision avec un autre bateau")
+            #placement du bateau
             for i in range(bateau.taille):
                 self.plateau.plateau[ligne - i][colone - 1] = "X"
                 bateau.cases.append(emplacement[0] + str(colone - 0 + i))
+        #Sud
         elif orientation == 'S':
+            #verification placement du bateau
             for i in range(bateau.taille):
                 if colone < 1 or colone > 10 or ligne + i < 0 or ligne + i > 9:
                     raise ValueError("Placement hors de la grille")
                 if self.plateau.plateau[ligne + i][colone - 1] == "X":
                     raise ValueError("Placement en collision avec un autre bateau")
+            #placement du bateau
             for i in range(bateau.taille):
                 self.plateau.plateau[ligne + i][colone - 1] = "X"
                 bateau.cases.append(emplacement[0] + str(colone + i))
+        #Est
         elif orientation == 'E':
+            #verification placement du bateau
             for i in range(bateau.taille):
                 if colone - 1 + i < 0 or colone - 1 + i > 9 or ligne < 0 or ligne > 9:
                     raise ValueError("Placement hors de la grille")
                 if self.plateau.plateau[ligne][colone - 1 + i] == "X":
                     raise ValueError("Placement en collision avec un autre bateau")
+            #placement du bateau
             for i in range(bateau.taille):
                 self.plateau.plateau[ligne][colone - 1 + i] = "X"
                 bateau.cases.append(emplacement[0] + str(colone + i))
+        #Ouest
         elif orientation == 'W':
+            #verification placement du bateau
             for i in range(bateau.taille):
                 if colone - 1 - i < 0 or colone - 1 - i > 9 or ligne < 0 or ligne > 9:
                     raise ValueError("Placement hors de la grille")
                 if self.plateau.plateau[ligne][colone - 1 - i] == "X":
                     raise ValueError("Placement en collision avec un autre bateau")
+            #placement du bateau
             for i in range(bateau.taille):
                 self.plateau.plateau[ligne][colone - 1 - i] = "X"
                 bateau.cases.append(emplacement[0] + str(colone - i))
-        self.bateaux.append(bateau)
-        self.bateaux_restants.remove(type)
+        # Ajout du bateau à la liste des bateaux du joueur et suppression de ce type de bateau des bateaux restants
+        self.bateaux_restants.append(bateau)
+        self.types_restants.remove(type)
     
     def est_valide(self, coord):
         """
@@ -104,16 +119,21 @@ class Bateau:
         elif type == 'porte-avions':
             self.taille = 5
 
-def tour(joueur_actuel, adversaire, coord_attaque):
-    pass
-    # attaquer
+def tour(joueur_actuel, coord_attaque):
+    if joueur_actuel.est_valide(coord_attaque):
+        print(f"Attaque sur la case {coord_attaque} est valide.")
+        # attaquer
+    else:
+        print(f"Attaque sur la case {coord_attaque} est invalide.")
+    
 
 def partie():
     j1 = Player(input("Nom du Joueur 1: "))
     j2 = Player(input("Nom du Joueur 2: "))
+    joueur = j1
     # placement de bateau
-    while j1.bateaux_restants:
-        bateau_type = input(f"{j1.name}, quel bateau voulez-vous placer parmi [{', '.join(j1.bateaux_restants)}] ? ").capitalize().lower()
+    while j1.types_restants:
+        bateau_type = input(f"{j1.name}, quel bateau voulez-vous placer parmi [{', '.join(j1.types_restants)}] ? ").capitalize().lower()
         coordonnée = input("Entrez les coordonnés de la première case du bateau: ")
         orientation = input("Entrez l'orientation du bateau (N, S, E, W): ")
         try:
@@ -123,8 +143,8 @@ def partie():
         except ValueError as e:
             j1.plateau.__str__()
             print(f"Erreur lors du placement de {bateau_type}: {e}")
-    while j2.bateaux_restants:
-        bateau_type = input(f"{j2.name}, quel bateau voulez-vous placer parmi [{', '.join(j2.bateaux_restants)}] ? ").capitalize().lower()
+    while j2.types_restants:
+        bateau_type = input(f"{j2.name}, quel bateau voulez-vous placer parmi [{', '.join(j2.types_restants)}] ? ").capitalize().lower()
         coordonnée = input("Entrez les coordonnés de la première case du bateau: ")
         orientation = input("Entrez l'orientation du bateau (N, S, E, W): ")
         try:
@@ -135,8 +155,12 @@ def partie():
             j2.plateau.__str__()
             print(f"Erreur lors du placement de {bateau_type}: {e}")
     while True: # boucle principale de la partie, condition de fin à ajouter
-        tour(j1, j2)
-        tour(j2, j1)
+        if joueur == j1:
+            joueur = j2
+        else:
+            joueur = j1
+        coord = input(f"{joueur.name}, entrez les coordonnées de la case à attaquer: ")
+        tour(joueur, coord)
 #TEST UNITAIRE
 if __name__ == "__main__":
     partie()
