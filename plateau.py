@@ -16,7 +16,7 @@ BATEAUX_DEFS = {
 LETTRES = "ABCDEFGHIJ"
 
 # ------------------------
-# Class ICI
+# Class par ICI
 # ------------------------
 class Coord:
     def __init__(self, coord_str):
@@ -74,8 +74,8 @@ class GameBoard:
                 raise ValueError("Collision avec un autre bateau")
             positions.append((r, c))
 
-        # Optionel : empêcher adjacence (non implémenté ici; peut être rajouté)
-        # Pose finale
+        
+        # Position finale
         for r, c in positions:
             self.plateau[r][c] = "B"
             ship.positions.append(f"{LETTRES[r]}{c+1}")
