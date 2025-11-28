@@ -2,100 +2,195 @@ import tkinter as tk
 import random
 from tkinter import simpledialog
 
+# ------------------------
+# Constantes / Types
+# ------------------------
 TAILLE = 10
-BATEAUX = {
+BATEAUX_DEFS = {
     'torpilleur': 2,
     'contre torpilleur': 3,
     'sous-marin': 3,
     'croiseur': 4,
     'porte-avions': 5
 }
+LETTRES = "ABCDEFGHIJ"
 
 # ------------------------
-# Classe Bateau
+# Class ICI
 # ------------------------
-class Bateau:
-    def __init__(self, type):
-        self.type = type
-        self.taille = BATEAUX[type]
-        self.cases = []
+class Coord:
+    def __init__(self, coord_str):
+        coord_str = coord_str.strip().upper()
+        self.coord_str = coord_str
+        if len(coord_str) < 2 or coord_str[0] not in LETTRES or not coord_str[1:].isdigit():
+            raise ValueError("Coordonnée invalide")
+        self.row = LETTRES.index(coord_str[0])
+        self.col = int(coord_str[1:]) - 1
+        if self.col < 0 or self.col >= TAILLE:
+            raise ValueError("Coordonnée invalide")
 
-# ------------------------
-# Classe Player
-# ------------------------
-class Player:
-    def __init__(self, name, is_ia=False):
-        self.name = name
-        self.is_ia = is_ia
-        self.plateau = [["O"] * TAILLE for _ in range(TAILLE)]
-        self.bateaux_restants = []
-        self.types_restants = list(BATEAUX.keys())
-        # True = case encore attaquable (n'a pas été tirée)
-        self.cases_attaquable = [[True] * TAILLE for _ in range(TAILLE)]
+    def __repr__(self):
+        return f"{self.coord_str}"
 
-    def placer_bateau_aleatoire(self, type):
-        bateau = Bateau(type)
-        placed = False
-        while not placed:
-            orientation = random.choice(['N', 'S', 'E', 'W'])
-            row = random.randint(0, TAILLE - 1)
-            col = random.randint(0, TAILLE - 1)
-            try:
-                self._placer_bateau_logique(bateau, row, col, orientation)
-                placed = True
-            except:
-                continue
+class Ship:
+    def __init__(self, type_name):
+        if type_name not in BATEAUX_DEFS:
+            raise ValueError("Type de bateau invalide")
+        self.type = type_name
+        self.size = BATEAUX_DEFS[type_name]
+        self.positions = []  # list of "A1" style strings
 
-    def _placer_bateau_logique(self, bateau, row, col, orientation):
+    def is_sunk(self):
+        return len(self.positions) == 0
+
+class GameBoard:
+    """
+    Représente le plateau interne (positions des bateaux + état des tirs).
+    plateau[r][c] : "." empty, "B" bateau présent, "X" touché, "O" raté
+    """
+    def __init__(self, size=TAILLE):
+        self.size = size
+        self.plateau = [["." for _ in range(size)] for _ in range(size)]
+        self.ships = []
+
+    def place_ship(self, ship: Ship, start_row, start_col, orientation):
+        # vérifie si possible, pose et enregistre les positions (A1 style)
         positions = []
-        for i in range(bateau.taille):
+        for i in range(ship.size):
             if orientation == 'N':
-                r, c = row - i, col
+                r, c = start_row - i, start_col
             elif orientation == 'S':
-                r, c = row + i, col
+                r, c = start_row + i, start_col
             elif orientation == 'E':
-                r, c = row, col + i
+                r, c = start_row, start_col + i
             elif orientation == 'W':
-                r, c = row, col - i
+                r, c = start_row, start_col - i
             else:
                 raise ValueError("Orientation invalide")
 
-            if not (0 <= r < TAILLE and 0 <= c < TAILLE):
-                raise ValueError("Hors plateau")
+            if not (0 <= r < self.size and 0 <= c < self.size):
+                raise ValueError("Placement hors plateau")
             if self.plateau[r][c] == "B":
-                raise ValueError("Collision")
-
+                raise ValueError("Collision avec un autre bateau")
             positions.append((r, c))
 
+        # Optionel : empêcher adjacence (non implémenté ici; peut être rajouté)
+        # Pose finale
         for r, c in positions:
             self.plateau[r][c] = "B"
-            bateau.cases.append((r, c))
+            ship.positions.append(f"{LETTRES[r]}{c+1}")
+        self.ships.append(ship)
 
-        self.bateaux_restants.append(bateau)
+    def receive_shot(self, row, col):
+        """
+        Reçoit un tir sur (row,col).
+        Retourne: 'hit', 'miss', 'sunk' et le type du bateau si coulé, ou None si case déjà tirée.
+        """
+        val = self.plateau[row][col]
+        coord_str = f"{LETTRES[row]}{col+1}"
+        if val in ("X", "O"):
+            return None  # case déjà ciblée
 
-    def tous_coules(self):
-        # renvoie True s'il n'y a plus de "B" dans le plateau
-        return all(cell != "B" for row in self.plateau for cell in row)
+        if val == "B":
+            # touché
+            self.plateau[row][col] = "X"
+            # chercher le bateau et retirer la case
+            for ship in self.ships:
+                if coord_str in ship.positions:
+                    ship.positions.remove(coord_str)
+                    if ship.is_sunk():
+                        # supprimer le navire de la liste
+                        self.ships.remove(ship)
+                        return ('sunk', ship.type)
+                    else:
+                        return ('hit', None)
+            # improbable mais au cas où
+            return ('hit', None)
+        else:
+            self.plateau[row][col] = "O"
+            return ('miss', None)
+
+    def all_sunk(self):
+        return len(self.ships) == 0
 
 # ------------------------
-# GUI
+# Classe Joueur ()
+# ------------------------
+class PlayerLogic:
+    def __init__(self, name, is_ia=False):
+        self.name = name
+        self.is_ia = is_ia
+        self.board = GameBoard()
+        self.view = GameBoard()  # ce que l'on voit de l'adversaire (X/O)
+        self.types_restants = list(BATEAUX_DEFS.keys())
+        # cases attaquables map "A1": True/False
+        self.cases_attaquable = {f"{lett}{num}": True for lett in LETTRES for num in range(1, TAILLE+1)}
+        # pour IA avancée - file cible quand on a touché
+        self.ia_target_queue = []  # list of (r,c) à tester en priorité
+
+    def place_ship_random(self, type_name):
+        ship = Ship(type_name)
+        placed = False
+        attempts = 0
+        while not placed and attempts < 200:
+            attempts += 1
+            ori = random.choice(['N','S','E','W'])
+            r = random.randint(0, TAILLE-1)
+            c = random.randint(0, TAILLE-1)
+            try:
+                self.board.place_ship(ship, r, c, ori)
+                placed = True
+            except Exception:
+                continue
+        if not placed:
+            raise RuntimeError("Impossible de placer le bateau aléatoirement")
+        if type_name in self.types_restants:
+            self.types_restants.remove(type_name)
+
+    def can_attack(self, coord_str):
+        return self.cases_attaquable.get(coord_str, False)
+
+    def mark_attacked(self, coord_str):
+        if coord_str in self.cases_attaquable:
+            self.cases_attaquable[coord_str] = False
+
+    def choose_ia_shot(self):
+        # IA basique avec mode "target" : si queue non vide, pop it; sinon random available
+        if self.ia_target_queue:
+            return self.ia_target_queue.pop(0)
+        options = [ (r,c) for r in range(TAILLE) for c in range(TAILLE)
+                    if self.view.plateau[r][c] == "." and f"{LETTRES[r]}{c+1}" in self.cases_attaquable and self.cases_attaquable[f"{LETTRES[r]}{c+1}"] ]
+        if not options:
+            return None
+        return random.choice(options)
+
+    def enqueue_adjacent(self, r, c):
+        # Ajoute voisins valides dans la queue (N,S,E,W) pour viser quand on touche
+        candidates = [(r-1,c),(r+1,c),(r,c-1),(r,c+1)]
+        for rr, cc in candidates:
+            if 0 <= rr < TAILLE and 0 <= cc < TAILLE:
+                coord_str = f"{LETTRES[rr]}{cc+1}"
+                if self.cases_attaquable.get(coord_str, False):
+                    # éviter doublons
+                    if (rr,cc) not in self.ia_target_queue:
+                        self.ia_target_queue.append((rr,cc))
+
+# ------------------------
+# GUI (Nouvelle version) 
 # ------------------------
 class BatailleNavaleGUI:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Bataille Navale")
-
         self.mode = tk.StringVar(value="IA")
         self.joueurs = []
-        self.joueur_actuel = 0
+        self.joueur_actuel_idx = 0  # index dans self.joueurs
         self.bateau_a_placer = None
         self.orientation = 'E'
-
         self.header_frame = None
         self.grid_frame = None
         self.buttons = []        # boutons actuels (grille affichée)
         self.info_tir = None     # label Touché/Dans l'eau
-
         self.init_menu()
 
     # ---------- menu ----------
@@ -111,65 +206,66 @@ class BatailleNavaleGUI:
         self.clear_all()
         if mode == "IA":
             nom = simpledialog.askstring("Nom", "Nom du joueur :") or "Joueur"
-            self.joueurs = [Player(nom), Player("IA", is_ia=True)]
+            self.joueurs = [PlayerLogic(nom), PlayerLogic("IA", is_ia=True)]
         else:
             nom1 = simpledialog.askstring("Nom", "Nom Joueur 1 :") or "J1"
             nom2 = simpledialog.askstring("Nom", "Nom Joueur 2 :") or "J2"
-            self.joueurs = [Player(nom1), Player(nom2)]
-        self.joueur_actuel = 0
+            self.joueurs = [PlayerLogic(nom1), PlayerLogic(nom2)]
+        self.joueur_actuel_idx = 0
+        # commencer la phase de placement pour joueur 0
         self.phase_placement()
 
     # ---------- placement ----------
     def phase_placement(self):
-        # Affiche la phase de placement pour self.joueur_actuel
+        # Affiche la phase de placement pour self.joueur_actuel_idx
         self.clear_all()
-        joueur = self.joueurs[self.joueur_actuel]
+        joueur = self.joueurs[self.joueur_actuel_idx]
 
         if joueur.types_restants:
             self.bateau_a_placer = joueur.types_restants[0]
-
             # header
             self.header_frame = tk.Frame(self.root)
             self.header_frame.pack(pady=6)
-            tk.Label(self.header_frame, text=f"{joueur.name}, placez votre {self.bateau_a_placer}").pack()
+            tk.Label(self.header_frame, text=f"{joueur.name}, placez votre {self.bateau_a_placer} (taille {BATEAUX_DEFS[self.bateau_a_placer]})").pack()
             frame_o = tk.Frame(self.header_frame)
             frame_o.pack(pady=4)
             for ori in ['N', 'E', 'S', 'W']:
                 tk.Button(frame_o, text=ori, width=3, command=lambda o=ori: self.set_orientation(o)).pack(side="left", padx=2)
-
+            tk.Label(self.header_frame, text="Cliquez sur la case de départ.").pack(pady=4)
             # grille du joueur (afficher B pendant placement)
             self.create_plateau(joueur, placer=True)
         else:
             # ce joueur a fini ; on passe au suivant ou on commence la phase de tir
-            if self.joueur_actuel == 0:
-                # passer au 1 pour placer
-                self.joueur_actuel = 1
-                if self.joueurs[self.joueur_actuel].is_ia:
-                    # IA place tout
-                    for t in list(self.joueurs[self.joueur_actuel].types_restants):
-                        self.joueurs[self.joueur_actuel].placer_bateau_aleatoire(t)
-                    self.joueurs[self.joueur_actuel].types_restants.clear()
+            if self.joueur_actuel_idx == 0:
+                self.joueur_actuel_idx = 1
+                if self.joueurs[self.joueur_actuel_idx].is_ia:
+                    # IA place tout aléatoirement
+                    ia = self.joueurs[self.joueur_actuel_idx]
+                    for t in list(ia.types_restants):
+                        ia.place_ship_random(t)
+                    ia.types_restants.clear()
                     # revenir au joueur 0 et commencer tir
-                    self.joueur_actuel = 0
+                    self.joueur_actuel_idx = 0
                     self.phase_tir()
                 else:
                     self.phase_placement()
             else:
                 # si on était joueur 1, revenir à 0 et commencer tir
-                self.joueur_actuel = 0
+                self.joueur_actuel_idx = 0
                 self.phase_tir()
 
     def set_orientation(self, ori):
         self.orientation = ori
 
     def placer_bateau_click(self, row, col):
-        joueur = self.joueurs[self.joueur_actuel]
+        joueur = self.joueurs[self.joueur_actuel_idx]
         type_bat = self.bateau_a_placer
-        bateau = Bateau(type_bat)
+        ship = Ship(type_bat)
         try:
-            joueur._placer_bateau_logique(bateau, row, col, self.orientation)
-        except:
-            # placement invalide : on ignore (on peut afficher message si tu veux)
+            joueur.board.place_ship(ship, row, col, self.orientation)
+        except Exception as e:
+            # pour debug on pourrait afficher message
+            print("Placement invalide :", e)
             return
         # retirer le type posé si présent
         if type_bat in joueur.types_restants:
@@ -178,7 +274,7 @@ class BatailleNavaleGUI:
         self.phase_placement()
 
     # ---------- affichage plateau ----------
-    def create_plateau(self, joueur, placer=False):
+    def create_plateau(self, joueur_logic: PlayerLogic, placer=False):
         # détruit ancienne grid si existante
         if self.grid_frame:
             self.grid_frame.destroy()
@@ -186,32 +282,33 @@ class BatailleNavaleGUI:
         self.grid_frame.pack(padx=6, pady=6)
         self.buttons = []
 
+        # en placement, on montre le plateau du joueur (B visibles)
+        # en tir, on montre la vue du joueur actif de l'adversaire (X/O) : on affiche adv.view
+        board_to_show = joueur_logic.board if placer else joueur_logic.view
+
         for r in range(TAILLE):
             row_btns = []
             for c in range(TAILLE):
-                val = joueur.plateau[r][c]
-                attaquable = joueur.cases_attaquable[r][c]
-
-                # Si on est en placement (on affiche les B visibles pour le joueur)
+                val = board_to_show.plateau[r][c]
                 if placer:
                     if val == "B":
                         text, couleur = "B", "green"
-                    elif not attaquable:
-                        text, couleur = "O", "lightblue"
                     elif val == "X":
                         text, couleur = "X", "red"
-                    else:
+                    elif val == "O":
                         text, couleur = "O", "lightblue"
+                    else:
+                        text, couleur = ".", "lightgray"
                 else:
-                    # affichage en phase de tir : on montre uniquement X (touché) et O (raté) ; jamais B
+                    # phase tir : on voit X/O/.
                     if val == "X":
                         text, couleur = "X", "red"
-                    elif not attaquable:
+                    elif val == "O":
                         text, couleur = "O", "lightblue"
                     else:
-                        text, couleur = "O", "lightgray"
+                        text, couleur = ".", "lightgray"
 
-                b = tk.Button(self.grid_frame, text=text, width=2, height=1, bg=couleur)
+                b = tk.Button(self.grid_frame, text=text, width=3, height=1, bg=couleur)
                 b.grid(row=r, column=c, padx=1, pady=1)
 
                 if placer:
@@ -226,8 +323,8 @@ class BatailleNavaleGUI:
     def phase_tir(self):
         # Affiche la vue du joueur actif (il voit la grille de l'adversaire)
         self.clear_header_and_grid()
-        joueur = self.joueurs[self.joueur_actuel]
-        adv = self.joueurs[1 - self.joueur_actuel]
+        joueur = self.joueurs[self.joueur_actuel_idx]
+        adv = self.joueurs[1 - self.joueur_actuel_idx]
 
         # header + info label
         self.header_frame = tk.Frame(self.root)
@@ -236,69 +333,95 @@ class BatailleNavaleGUI:
         self.info_tir = tk.Label(self.header_frame, text="", font=("Arial", 14))
         self.info_tir.pack()
 
-        # afficher la grille de l'adversaire (bateaux invisibles)
-        self.create_plateau(adv, placer=False)
+        # afficher la grille de l'adversaire (bateaux invisibles - on montre joueur.view de l'adversaire)
+        # la vue du joueur courant sur l'adversaire est joueur.view
+        self.create_plateau(joueur, placer=False)
 
         # si l'IA doit jouer, on déclenche après un court délai
         if joueur.is_ia:
             self.root.after(500, self.ia_tirer)
 
     def tirer_click(self, row, col):
-        joueur = self.joueurs[self.joueur_actuel]
-        adv = self.joueurs[1 - self.joueur_actuel]
+        joueur = self.joueurs[self.joueur_actuel_idx]
+        adv = self.joueurs[1 - self.joueur_actuel_idx]
+        coord_str = f"{LETTRES[row]}{col+1}"
 
         # si déjà ciblée -> ignore
-        if not adv.cases_attaquable[row][col]:
+        if not joueur.can_attack(coord_str):
             return
 
-        # marquer ciblée
-        adv.cases_attaquable[row][col] = False
-        val = adv.plateau[row][col]
+        # marquer ciblée côté attaquant
+        joueur.mark_attacked(coord_str)
 
-        if val == "B":
-            # touché
-            adv.plateau[row][col] = "X"
-            # mettre à jour bouton affiché (on affiche la grille de l'adversaire)
-            try:
-                self.buttons[row][col].config(text="X", bg="red")
-            except:
-                pass
+        # appliquer tir sur plateau adverse
+        resultat = adv.board.receive_shot(row, col)
+        # mettre à jour la vue de l'attaquant
+        if resultat is None:
+            # déjà ciblée (peu probable car can_attack prévient) => ignore
+            return
+
+        res_type, ship_type = resultat  # res_type in 'hit','miss','sunk'
+        if res_type == 'hit':
+            joueur.view.plateau[row][col] = "X"
+            # si attaquant est IA et touche, il doit viser voisins
+            if joueur.is_ia:
+                joueur.enqueue_adjacent(row, col)
+            # message
             if self.info_tir:
                 self.info_tir.config(text="🎯 Touché !", fg="red")
             # vérifier victoire
-            if adv.tous_coules():
+            if adv.board.all_sunk():
                 self.clear_header_and_grid()
                 self.header_frame = tk.Frame(self.root)
                 self.header_frame.pack(pady=10)
                 tk.Label(self.header_frame, text=f"{joueur.name} a gagné !", font=("Arial", 16)).pack()
                 return
-            # joueur touche -> il rejoue ; réaffiche (petit délai pour voir la case)
-            self.root.update()
-            self.root.after(300, self.phase_tir)
-        else:
-            # raté
-            adv.plateau[row][col] = "O"
-            try:
-                self.buttons[row][col].config(text="O", bg="lightblue")
-            except:
+            # le joueur rejoue (on réaffiche la grille de l'adversaire pour montrer X)
+            self.create_plateau(joueur, placer=False)
+        elif res_type == 'sunk':
+            joueur.view.plateau[row][col] = "X"
+            # si IA, on peut nettoyer queue (optionnel)
+            if joueur.is_ia:
+                # on pourrait enlever des cibles inconsistantes; on garde simple
                 pass
+            if self.info_tir:
+                self.info_tir.config(text=f"💥 Coulé ({ship_type}) !", fg="darkred")
+            # vérifier victoire
+            if adv.board.all_sunk():
+                self.clear_header_and_grid()
+                self.header_frame = tk.Frame(self.root)
+                self.header_frame.pack(pady=10)
+                tk.Label(self.header_frame, text=f"{joueur.name} a gagné !", font=("Arial", 16)).pack()
+                return
+            # attaquant rejoue (dans les règles, coulé = rejoue)
+            self.create_plateau(joueur, placer=False)
+        else:  # 'miss'
+            joueur.view.plateau[row][col] = "O"
             if self.info_tir:
                 self.info_tir.config(text="💧 Dans l'eau !", fg="blue")
             # passe au joueur suivant
-            self.joueur_actuel = 1 - self.joueur_actuel
+            self.joueur_actuel_idx = 1 - self.joueur_actuel_idx
             self.root.update()
-            # on attend un court délai puis on montre la grille du joueur suivant
             self.root.after(300, self.phase_tir)
 
     # ---------- IA ----------
     def ia_tirer(self):
-        if not self.joueurs[self.joueur_actuel].is_ia:
+        if not self.joueurs[self.joueur_actuel_idx].is_ia:
             return
-        adv = self.joueurs[1 - self.joueur_actuel]
-        options = [(r, c) for r in range(TAILLE) for c in range(TAILLE) if adv.cases_attaquable[r][c]]
-        if not options:
+        ia = self.joueurs[self.joueur_actuel_idx]
+        adv = self.joueurs[1 - self.joueur_actuel_idx]
+        choice = ia.choose_ia_shot()
+        if choice is None:
+            # plus d'options
             return
-        row, col = random.choice(options)
+        row, col = choice
+        # vérifier si case attaquable selon la map des cases
+        coord_str = f"{LETTRES[row]}{col+1}"
+        if not ia.can_attack(coord_str):
+            # si non attaquable, on rappelle ia_tirer rapidement
+            self.root.after(50, self.ia_tirer)
+            return
+        # effectuer tir
         self.tirer_click(row, col)
 
     # ---------- util ----------
