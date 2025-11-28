@@ -8,7 +8,9 @@ Les instructions de installation:
 - exécuter le code, la partie peut commencer
 
 Explication des régles :
-chaque joueurs choisis l emplacement  de ses bateaux au début de la partie ,
+On doit renseigner le choix du mode de jeu 
+Puis on doit saisir 1 ou 2 nom de joueur 
+Et enfin chaque joueurs choisis l emplacement  de ses bateaux au début de la partie ,
 ensuite la partie peut commencer:
 - le O représente un tir raté
 - le B représente l emplacement d'un bateau
